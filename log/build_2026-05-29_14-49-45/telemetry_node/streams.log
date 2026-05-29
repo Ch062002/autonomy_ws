@@ -1,0 +1,21 @@
+[0.443s] Invoking command in '/home/chirag/Aerospace/ROS2/autonomy_ws/src/telemetry_node': DEBUGINFOD_URLS=https://debuginfod.ubuntu.com PYTHONPATH=/home/chirag/Aerospace/ROS2/autonomy_ws/build/telemetry_node/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/chirag/Aerospace/ROS2/autonomy_ws/install/telemetry_node/lib/python3.12/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/telemetry_node build --build-base /home/chirag/Aerospace/ROS2/autonomy_ws/build/telemetry_node/build install --record /home/chirag/Aerospace/ROS2/autonomy_ws/build/telemetry_node/install.log --single-version-externally-managed install_data
+[0.589s] running egg_info
+[0.599s] writing ../../build/telemetry_node/telemetry_node.egg-info/PKG-INFO
+[0.599s] writing dependency_links to ../../build/telemetry_node/telemetry_node.egg-info/dependency_links.txt
+[0.599s] writing entry points to ../../build/telemetry_node/telemetry_node.egg-info/entry_points.txt
+[0.599s] writing requirements to ../../build/telemetry_node/telemetry_node.egg-info/requires.txt
+[0.599s] writing top-level names to ../../build/telemetry_node/telemetry_node.egg-info/top_level.txt
+[0.622s] reading manifest file '../../build/telemetry_node/telemetry_node.egg-info/SOURCES.txt'
+[0.622s] writing manifest file '../../build/telemetry_node/telemetry_node.egg-info/SOURCES.txt'
+[0.622s] running build
+[0.622s] running build_py
+[0.623s] running install
+[0.626s] running install_lib
+[0.637s] running install_data
+[0.637s] running install_egg_info
+[0.648s] removing '/home/chirag/Aerospace/ROS2/autonomy_ws/install/telemetry_node/lib/python3.12/site-packages/telemetry_node-0.0.0-py3.12.egg-info' (and everything under it)
+[0.649s] Copying ../../build/telemetry_node/telemetry_node.egg-info to /home/chirag/Aerospace/ROS2/autonomy_ws/install/telemetry_node/lib/python3.12/site-packages/telemetry_node-0.0.0-py3.12.egg-info
+[0.649s] running install_scripts
+[0.727s] Installing telemetry_publisher script to /home/chirag/Aerospace/ROS2/autonomy_ws/install/telemetry_node/lib/telemetry_node
+[0.728s] writing list of installed files to '/home/chirag/Aerospace/ROS2/autonomy_ws/build/telemetry_node/install.log'
+[0.750s] Invoked command in '/home/chirag/Aerospace/ROS2/autonomy_ws/src/telemetry_node' returned '0': DEBUGINFOD_URLS=https://debuginfod.ubuntu.com PYTHONPATH=/home/chirag/Aerospace/ROS2/autonomy_ws/build/telemetry_node/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/chirag/Aerospace/ROS2/autonomy_ws/install/telemetry_node/lib/python3.12/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/telemetry_node build --build-base /home/chirag/Aerospace/ROS2/autonomy_ws/build/telemetry_node/build install --record /home/chirag/Aerospace/ROS2/autonomy_ws/build/telemetry_node/install.log --single-version-externally-managed install_data
