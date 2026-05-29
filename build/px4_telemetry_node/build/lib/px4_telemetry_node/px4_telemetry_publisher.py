@@ -65,7 +65,8 @@ class PX4TelemetryPublisher(Node):
             6: "ACRO",
             10: "OFFBOARD",
             14: "AUTO_TAKEOFF",
-            15: "AUTO_LAND"
+            15: "AUTO_LAND",
+            18: "AUTO_LOITER",
         }
 
         return labels.get(nav_state, f"UNKNOWN ({nav_state})")
