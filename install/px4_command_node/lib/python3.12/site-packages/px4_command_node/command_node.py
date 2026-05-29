@@ -75,6 +75,18 @@ class PX4CommandNode(Node):
             param7=altitude
         )
 
+    def rtl(self):
+        self.send_repeated(
+            VehicleCommand.VEHICLE_CMD_NAV_RETURN_TO_LAUNCH
+        )
+
+    def hold(self):
+        self.send_repeated(
+            VehicleCommand.VEHICLE_CMD_DO_SET_MODE,
+            param1=1.0,
+            param2=4.0
+        )    
+    
     def land(self):
         self.send_repeated(
             VehicleCommand.VEHICLE_CMD_NAV_LAND
@@ -106,6 +118,14 @@ def main(args=None):
     elif command_arg == "land":
         node.get_logger().info("Sending LAND command...")
         node.land()
+
+    elif command_arg == "rtl":
+        node.get_logger().info("Sending RTL command...")
+        node.rtl()
+
+    elif command_arg == "hold":
+        node.get_logger().info("Sending HOLD command...")
+        node.hold()
 
     else:
         node.get_logger().error("Invalid command. Use: arm, disarm, takeoff, land")
