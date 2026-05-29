@@ -6,13 +6,15 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
 from std_msgs.msg import String
-from px4_msgs.msg import VehicleLocalPosition
+from px4_msgs.msg import VehicleLocalPosition, BatteryStatus
 
 
 class PX4TelemetryPublisher(Node):
 
     def __init__(self):
         super().__init__('px4_telemetry_publisher')
+
+        self.latest_battery = "--"
 
         self.telemetry_pub = self.create_publisher(
             String,
@@ -26,14 +28,25 @@ class PX4TelemetryPublisher(Node):
             depth=10
         )
 
-        self.subscription = self.create_subscription(
+        self.local_position_sub = self.create_subscription(
             VehicleLocalPosition,
             '/fmu/out/vehicle_local_position_v1',
             self.local_position_callback,
             qos_profile
         )
 
+        self.battery_sub = self.create_subscription(
+            BatteryStatus,
+            '/fmu/out/battery_status_v1',
+            self.battery_callback,
+            qos_profile
+        )
+
         self.get_logger().info("PX4 real telemetry publisher started")
+
+    def battery_callback(self, msg):
+        if msg.remaining >= 0:
+            self.latest_battery = round(msg.remaining * 100, 2)
 
     def local_position_callback(self, msg):
         altitude = round(-msg.z, 2)
@@ -47,7 +60,7 @@ class PX4TelemetryPublisher(Node):
         telemetry = {
             "altitude": altitude,
             "velocity": round(velocity, 2),
-            "battery": "--",
+            "battery": self.latest_battery,
             "flight_mode": "PX4_REAL"
         }
 
