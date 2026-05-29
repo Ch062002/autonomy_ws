@@ -1,0 +1,2 @@
+[console_scripts]
+telemetry_publisher = telemetry_node.telemetry_publisher:main

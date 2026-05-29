@@ -1,0 +1,2 @@
+[console_scripts]
+px4_telemetry_publisher = px4_telemetry_node.px4_telemetry_publisher:main
