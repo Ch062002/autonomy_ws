@@ -54,13 +54,37 @@ class PX4TelemetryPublisher(Node):
 
         self.get_logger().info("PX4 real telemetry publisher started")
 
+    def nav_state_label(self, nav_state):
+        labels = {
+            0: "MANUAL",
+            1: "ALTCTL",
+            2: "POSCTL",
+            3: "AUTO_MISSION",
+            4: "AUTO_LOITER",
+            5: "AUTO_RTL",
+            6: "ACRO",
+            10: "OFFBOARD",
+            14: "AUTO_TAKEOFF",
+            15: "AUTO_LAND"
+        }
+
+        return labels.get(nav_state, f"UNKNOWN ({nav_state})")
+
+    def arming_state_label(self, arming_state):
+        labels = {
+            1: "DISARMED",
+            2: "ARMED"
+        }
+
+        return labels.get(arming_state, f"UNKNOWN ({arming_state})")
+
     def battery_callback(self, msg):
         if msg.remaining >= 0:
             self.latest_battery = round(msg.remaining * 100, 2)
 
     def status_callback(self, msg):
-        self.latest_nav_state = int(msg.nav_state)
-        self.latest_arming_state = int(msg.arming_state)
+        self.latest_nav_state = self.nav_state_label(int(msg.nav_state))
+        self.latest_arming_state = self.arming_state_label(int(msg.arming_state))
         self.latest_failsafe = bool(msg.failsafe)
 
     def local_position_callback(self, msg):
