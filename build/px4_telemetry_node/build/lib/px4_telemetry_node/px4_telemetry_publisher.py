@@ -6,22 +6,31 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
 from std_msgs.msg import String
-from px4_msgs.msg import VehicleLocalPosition, BatteryStatus, VehicleStatus
+from px4_msgs.msg import (
+    VehicleLocalPosition,
+    VehicleGlobalPosition,
+    BatteryStatus,
+    VehicleStatus
+)
 
 
 class PX4TelemetryPublisher(Node):
 
     def __init__(self):
-        super().__init__('px4_telemetry_publisher')
+        super().__init__("px4_telemetry_publisher")
 
         self.latest_battery = "--"
         self.latest_nav_state = "--"
         self.latest_arming_state = "--"
         self.latest_failsafe = False
 
+        self.latest_latitude = 47.3977
+        self.latest_longitude = 8.5456
+        self.latest_global_altitude = "--"
+
         self.telemetry_pub = self.create_publisher(
             String,
-            'telemetry_data',
+            "telemetry_data",
             10
         )
 
@@ -33,21 +42,28 @@ class PX4TelemetryPublisher(Node):
 
         self.local_position_sub = self.create_subscription(
             VehicleLocalPosition,
-            '/fmu/out/vehicle_local_position_v1',
+            "/fmu/out/vehicle_local_position_v1",
             self.local_position_callback,
+            qos_profile
+        )
+
+        self.global_position_sub = self.create_subscription(
+            VehicleGlobalPosition,
+            "/fmu/out/vehicle_global_position",
+            self.global_position_callback,
             qos_profile
         )
 
         self.battery_sub = self.create_subscription(
             BatteryStatus,
-            '/fmu/out/battery_status_v1',
+            "/fmu/out/battery_status_v1",
             self.battery_callback,
             qos_profile
         )
 
         self.status_sub = self.create_subscription(
             VehicleStatus,
-            '/fmu/out/vehicle_status_v4',
+            "/fmu/out/vehicle_status_v4",
             self.status_callback,
             qos_profile
         )
@@ -66,7 +82,7 @@ class PX4TelemetryPublisher(Node):
             10: "OFFBOARD",
             14: "AUTO_TAKEOFF",
             15: "AUTO_LAND",
-            18: "AUTO_LOITER",
+            18: "AUTO_LOITER"
         }
 
         return labels.get(nav_state, f"UNKNOWN ({nav_state})")
@@ -88,6 +104,11 @@ class PX4TelemetryPublisher(Node):
         self.latest_arming_state = self.arming_state_label(int(msg.arming_state))
         self.latest_failsafe = bool(msg.failsafe)
 
+    def global_position_callback(self, msg):
+        self.latest_latitude = round(float(msg.lat), 7)
+        self.latest_longitude = round(float(msg.lon), 7)
+        self.latest_global_altitude = round(float(msg.alt), 2)
+
     def local_position_callback(self, msg):
         altitude = round(-msg.z, 2)
 
@@ -103,7 +124,10 @@ class PX4TelemetryPublisher(Node):
             "battery": self.latest_battery,
             "flight_mode": self.latest_nav_state,
             "arming_state": self.latest_arming_state,
-            "failsafe": self.latest_failsafe
+            "failsafe": self.latest_failsafe,
+            "latitude": self.latest_latitude,
+            "longitude": self.latest_longitude,
+            "global_altitude": self.latest_global_altitude
         }
 
         out_msg = String()
@@ -125,5 +149,5 @@ def main(args=None):
     rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
