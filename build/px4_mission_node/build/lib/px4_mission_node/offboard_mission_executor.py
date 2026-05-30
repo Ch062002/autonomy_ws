@@ -1,4 +1,5 @@
 import json
+import math
 
 import rclpy
 from rclpy.node import Node
@@ -65,7 +66,9 @@ class OffboardMissionExecutor(Node):
         self.timer = self.create_timer(0.1, self.timer_callback)
 
         self.counter = 0
+
         self.current_local_position = [0.0, 0.0, 0.0]
+        self.current_setpoint = [0.0, 0.0, -10.0]
 
         self.mission_loaded = False
         self.mission_active = False
@@ -74,9 +77,10 @@ class OffboardMissionExecutor(Node):
         self.mission_waypoints = []
         self.local_setpoints = []
         self.active_index = 0
-        self.current_setpoint = [0.0, 0.0, -10.0]
 
-        self.get_logger().info("Dynamic Offboard Mission Executor started")
+        self.acceptance_radius = 2.5
+
+        self.get_logger().info("Distance-Based Offboard Mission Executor started")
         self.get_logger().info("Waiting for mission_upload messages...")
 
     def mission_callback(self, msg):
@@ -95,6 +99,7 @@ class OffboardMissionExecutor(Node):
                 x = index * 10.0
                 y = index * 5.0
                 z = -float(wp.get("alt", 10.0))
+
                 self.local_setpoints.append([x, y, z])
 
             self.active_index = 0
@@ -106,8 +111,11 @@ class OffboardMissionExecutor(Node):
             self.counter = 0
 
             self.get_logger().info(
-                f"Mission loaded into offboard executor with {len(self.local_setpoints)} waypoints"
+                f"Mission loaded with {len(self.local_setpoints)} setpoints"
             )
+
+            for i, sp in enumerate(self.local_setpoints):
+                self.get_logger().info(f"SP{i + 1}: {sp}")
 
             self.publish_progress()
 
@@ -120,6 +128,13 @@ class OffboardMissionExecutor(Node):
             float(msg.y),
             float(msg.z)
         ]
+
+    def distance_to_current_setpoint(self):
+        dx = self.current_local_position[0] - self.current_setpoint[0]
+        dy = self.current_local_position[1] - self.current_setpoint[1]
+        dz = self.current_local_position[2] - self.current_setpoint[2]
+
+        return math.sqrt(dx * dx + dy * dy + dz * dz)
 
     def publish_progress(self):
         total = len(self.local_setpoints)
@@ -200,27 +215,36 @@ class OffboardMissionExecutor(Node):
         if not self.mission_loaded or not self.mission_active:
             return
 
-        if self.counter % 80 == 0:
+        distance = self.distance_to_current_setpoint()
+
+        if self.counter % 20 == 0:
             self.get_logger().info(
-                f"Simulated reached waypoint {self.active_index + 1}"
+                f"Tracking WP{self.active_index + 1}: "
+                f"distance={distance:.2f} m | "
+                f"current={self.current_local_position} | "
+                f"target={self.current_setpoint}"
             )
 
-            self.publish_progress()
+        if distance <= self.acceptance_radius:
+            self.get_logger().info(
+                f"Reached waypoint {self.active_index + 1} "
+                f"at distance {distance:.2f} m"
+            )
 
             if self.active_index < len(self.local_setpoints) - 1:
                 self.active_index += 1
                 self.current_setpoint = self.local_setpoints[self.active_index]
 
                 self.get_logger().info(
-                    f"Switching to waypoint {self.active_index + 1}: {self.current_setpoint}"
+                    f"Switching to waypoint {self.active_index + 1}: "
+                    f"{self.current_setpoint}"
                 )
-
-                self.publish_progress()
             else:
                 self.get_logger().info("Mission complete. Holding final waypoint.")
                 self.mission_active = False
                 self.mission_state = "Completed"
-                self.publish_progress()
+
+            self.publish_progress()
 
     def timer_callback(self):
         self.publish_offboard_mode()
@@ -231,9 +255,8 @@ class OffboardMissionExecutor(Node):
             self.arm()
             self.get_logger().info("OFFBOARD mode requested and ARM command sent")
 
-        if self.mission_loaded:
-            self.update_waypoint_progress()
-            self.publish_progress()
+        self.update_waypoint_progress()
+        self.publish_progress()
 
         self.counter += 1
 
