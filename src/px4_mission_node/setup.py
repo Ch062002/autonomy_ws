@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             "mission_node = px4_mission_node.mission_node:main",
+            'offboard_mission_executor = px4_mission_node.offboard_mission_executor:main',
         ],
     },
 )
