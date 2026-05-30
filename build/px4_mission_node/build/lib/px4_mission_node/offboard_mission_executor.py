@@ -1,11 +1,17 @@
+import json
 import math
-import time
 
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
-from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand
+from std_msgs.msg import String
+from px4_msgs.msg import (
+    OffboardControlMode,
+    TrajectorySetpoint,
+    VehicleCommand,
+    VehicleLocalPosition
+)
 
 
 class OffboardMissionExecutor(Node):
@@ -37,12 +43,71 @@ class OffboardMissionExecutor(Node):
             qos_profile
         )
 
+        self.mission_sub = self.create_subscription(
+            String,
+            "mission_upload",
+            self.mission_callback,
+            10
+        )
+
+        self.local_position_sub = self.create_subscription(
+            VehicleLocalPosition,
+            "/fmu/out/vehicle_local_position_v1",
+            self.local_position_callback,
+            qos_profile
+        )
+
         self.timer = self.create_timer(0.1, self.timer_callback)
 
         self.counter = 0
-        self.current_setpoint = [0.0, 0.0, -10.0]
+        self.current_local_position = [0.0, 0.0, 0.0]
 
-        self.get_logger().info("Offboard Mission Executor started")
+        self.mission_waypoints = []
+        self.local_setpoints = []
+        self.active_index = 0
+
+        self.current_setpoint = [0.0, 0.0, -10.0]
+        self.mission_active = False
+
+        self.get_logger().info("Dynamic Offboard Mission Executor started")
+        self.get_logger().info("Waiting for mission_upload messages...")
+
+    def mission_callback(self, msg):
+        try:
+            mission = json.loads(msg.data)
+            waypoints = mission.get("waypoints", [])
+
+            if len(waypoints) == 0:
+                self.get_logger().warn("Received empty mission")
+                return
+
+            self.mission_waypoints = waypoints
+            self.local_setpoints = []
+
+            for index, wp in enumerate(waypoints):
+                x = index * 10.0
+                y = index * 5.0
+                z = -float(wp.get("alt", 10.0))
+
+                self.local_setpoints.append([x, y, z])
+
+            self.active_index = 0
+            self.current_setpoint = self.local_setpoints[0]
+            self.mission_active = True
+            self.counter = 0
+
+            self.get_logger().info("Mission loaded into offboard executor")
+            self.get_logger().info(f"Waypoint count: {len(self.local_setpoints)}")
+
+        except Exception as e:
+            self.get_logger().error(f"Mission parse failed: {e}")
+
+    def local_position_callback(self, msg):
+        self.current_local_position = [
+            float(msg.x),
+            float(msg.y),
+            float(msg.z)
+        ]
 
     def publish_vehicle_command(self, command, param1=0.0, param2=0.0):
         msg = VehicleCommand()
@@ -51,6 +116,7 @@ class OffboardMissionExecutor(Node):
         msg.param1 = float(param1)
         msg.param2 = float(param2)
         msg.command = command
+
         msg.target_system = 1
         msg.target_component = 1
         msg.source_system = 1
@@ -75,13 +141,11 @@ class OffboardMissionExecutor(Node):
         msg = TrajectorySetpoint()
 
         msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
-
         msg.position = [
             float(self.current_setpoint[0]),
             float(self.current_setpoint[1]),
             float(self.current_setpoint[2])
         ]
-
         msg.yaw = 0.0
 
         self.trajectory_pub.publish(msg)
@@ -99,6 +163,26 @@ class OffboardMissionExecutor(Node):
             param2=6.0
         )
 
+    def update_waypoint_progress(self):
+        if not self.mission_active:
+            return
+
+        if self.counter % 80 == 0:
+            self.get_logger().info(
+                f"Simulated reached waypoint {self.active_index + 1}"
+            )
+
+            if self.active_index < len(self.local_setpoints) - 1:
+                self.active_index += 1
+                self.current_setpoint = self.local_setpoints[self.active_index]
+
+                self.get_logger().info(
+                    f"Switching to waypoint {self.active_index + 1}: {self.current_setpoint}"
+                )
+            else:
+                self.get_logger().info("Mission complete. Holding final waypoint.")
+                self.mission_active = False
+
     def timer_callback(self):
         self.publish_offboard_mode()
         self.publish_trajectory_setpoint()
@@ -107,6 +191,8 @@ class OffboardMissionExecutor(Node):
             self.set_offboard_mode()
             self.arm()
             self.get_logger().info("OFFBOARD mode requested and ARM command sent")
+
+        self.update_waypoint_progress()
 
         self.counter += 1
 
