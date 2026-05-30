@@ -1,5 +1,4 @@
 import json
-import math
 
 import rclpy
 from rclpy.node import Node
@@ -43,6 +42,12 @@ class OffboardMissionExecutor(Node):
             qos_profile
         )
 
+        self.progress_pub = self.create_publisher(
+            String,
+            "mission_progress",
+            10
+        )
+
         self.mission_sub = self.create_subscription(
             String,
             "mission_upload",
@@ -68,6 +73,7 @@ class OffboardMissionExecutor(Node):
 
         self.current_setpoint = [0.0, 0.0, -10.0]
         self.mission_active = False
+        self.mission_state = "Idle"
 
         self.get_logger().info("Dynamic Offboard Mission Executor started")
         self.get_logger().info("Waiting for mission_upload messages...")
@@ -88,16 +94,18 @@ class OffboardMissionExecutor(Node):
                 x = index * 10.0
                 y = index * 5.0
                 z = -float(wp.get("alt", 10.0))
-
                 self.local_setpoints.append([x, y, z])
 
             self.active_index = 0
             self.current_setpoint = self.local_setpoints[0]
             self.mission_active = True
+            self.mission_state = "Running"
             self.counter = 0
 
             self.get_logger().info("Mission loaded into offboard executor")
             self.get_logger().info(f"Waypoint count: {len(self.local_setpoints)}")
+
+            self.publish_progress()
 
         except Exception as e:
             self.get_logger().error(f"Mission parse failed: {e}")
@@ -108,6 +116,27 @@ class OffboardMissionExecutor(Node):
             float(msg.y),
             float(msg.z)
         ]
+
+    def publish_progress(self):
+        total = len(self.local_setpoints)
+
+        if total == 0:
+            progress = 0
+            active_waypoint = 0
+        else:
+            active_waypoint = self.active_index + 1
+            progress = round((active_waypoint / total) * 100)
+
+        payload = {
+            "mission_state": self.mission_state,
+            "active_waypoint": active_waypoint,
+            "total_waypoints": total,
+            "progress_percent": progress
+        }
+
+        msg = String()
+        msg.data = json.dumps(payload)
+        self.progress_pub.publish(msg)
 
     def publish_vehicle_command(self, command, param1=0.0, param2=0.0):
         msg = VehicleCommand()
@@ -172,6 +201,8 @@ class OffboardMissionExecutor(Node):
                 f"Simulated reached waypoint {self.active_index + 1}"
             )
 
+            self.publish_progress()
+
             if self.active_index < len(self.local_setpoints) - 1:
                 self.active_index += 1
                 self.current_setpoint = self.local_setpoints[self.active_index]
@@ -179,9 +210,13 @@ class OffboardMissionExecutor(Node):
                 self.get_logger().info(
                     f"Switching to waypoint {self.active_index + 1}: {self.current_setpoint}"
                 )
+
+                self.publish_progress()
             else:
                 self.get_logger().info("Mission complete. Holding final waypoint.")
                 self.mission_active = False
+                self.mission_state = "Completed"
+                self.publish_progress()
 
     def timer_callback(self):
         self.publish_offboard_mode()
