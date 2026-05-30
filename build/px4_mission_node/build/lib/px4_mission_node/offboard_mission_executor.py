@@ -67,13 +67,14 @@ class OffboardMissionExecutor(Node):
         self.counter = 0
         self.current_local_position = [0.0, 0.0, 0.0]
 
+        self.mission_loaded = False
+        self.mission_active = False
+        self.mission_state = "Idle"
+
         self.mission_waypoints = []
         self.local_setpoints = []
         self.active_index = 0
-
         self.current_setpoint = [0.0, 0.0, -10.0]
-        self.mission_active = False
-        self.mission_state = "Idle"
 
         self.get_logger().info("Dynamic Offboard Mission Executor started")
         self.get_logger().info("Waiting for mission_upload messages...")
@@ -98,17 +99,20 @@ class OffboardMissionExecutor(Node):
 
             self.active_index = 0
             self.current_setpoint = self.local_setpoints[0]
+
+            self.mission_loaded = True
             self.mission_active = True
             self.mission_state = "Running"
             self.counter = 0
 
-            self.get_logger().info("Mission loaded into offboard executor")
-            self.get_logger().info(f"Waypoint count: {len(self.local_setpoints)}")
+            self.get_logger().info(
+                f"Mission loaded into offboard executor with {len(self.local_setpoints)} waypoints"
+            )
 
             self.publish_progress()
 
         except Exception as e:
-            self.get_logger().error(f"Mission parse failed: {e}")
+            self.get_logger().error(f"Mission parse error: {e}")
 
     def local_position_callback(self, msg):
         self.current_local_position = [
@@ -121,8 +125,8 @@ class OffboardMissionExecutor(Node):
         total = len(self.local_setpoints)
 
         if total == 0:
-            progress = 0
             active_waypoint = 0
+            progress = 0
         else:
             active_waypoint = self.active_index + 1
             progress = round((active_waypoint / total) * 100)
@@ -193,7 +197,7 @@ class OffboardMissionExecutor(Node):
         )
 
     def update_waypoint_progress(self):
-        if not self.mission_active:
+        if not self.mission_loaded or not self.mission_active:
             return
 
         if self.counter % 80 == 0:
@@ -227,7 +231,9 @@ class OffboardMissionExecutor(Node):
             self.arm()
             self.get_logger().info("OFFBOARD mode requested and ARM command sent")
 
-        self.update_waypoint_progress()
+        if self.mission_loaded:
+            self.update_waypoint_progress()
+            self.publish_progress()
 
         self.counter += 1
 
