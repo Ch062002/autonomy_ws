@@ -1,5 +1,6 @@
 import json
 import math
+import numpy as np
 
 import rclpy
 from rclpy.node import Node
@@ -142,21 +143,42 @@ class OffboardMissionExecutor(Node):
         if total == 0:
             active_waypoint = 0
             progress = 0
+            target_position = [0.0, 0.0, 0.0]
         else:
             active_waypoint = self.active_index + 1
             progress = round((active_waypoint / total) * 100)
+            target_position = self.current_setpoint
+
+        dx = self.current_local_position[0] - target_position[0]
+        dy = self.current_local_position[1] - target_position[1]
+        dz = self.current_local_position[2] - target_position[2]
+
+        distance_to_waypoint = (dx * dx + dy * dy + dz * dz) ** 0.5
 
         payload = {
             "mission_state": self.mission_state,
             "active_waypoint": active_waypoint,
             "total_waypoints": total,
-            "progress_percent": progress
+            "progress_percent": progress,
+            "distance_to_waypoint": round(distance_to_waypoint, 2),
+            "current_position": [
+                round(self.current_local_position[0], 2),
+                round(self.current_local_position[1], 2),
+                round(self.current_local_position[2], 2)
+            ],
+            "target_position": [
+                round(target_position[0], 2),
+                round(target_position[1], 2),
+                round(target_position[2], 2)
+            ]
         }
 
         msg = String()
         msg.data = json.dumps(payload)
         self.progress_pub.publish(msg)
-
+        with open("/tmp/mission_progress.json", "w") as f:
+            json.dump(payload, f)
+        
     def publish_vehicle_command(self, command, param1=0.0, param2=0.0):
         msg = VehicleCommand()
 
