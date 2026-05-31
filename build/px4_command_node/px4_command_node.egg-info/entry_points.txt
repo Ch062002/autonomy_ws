@@ -1,2 +1,0 @@
-[console_scripts]
-command_node = px4_command_node.command_node:main

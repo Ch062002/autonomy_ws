@@ -1,2 +1,0 @@
-[console_scripts]
-guidance_node = guidance_node.guidance_node:main
