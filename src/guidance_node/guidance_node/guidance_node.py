@@ -282,11 +282,90 @@ class GuidanceNode(Node):
             "current_position": self.current_position
         }
 
+    def compute_pure_pursuit_guidance(self):
+        if self.mission is None:
+            return {
+                "guidance_mode": "PURE_PURSUIT",
+                "status": "waiting_for_mission"
+            }
+
+        waypoints = self.mission.get("waypoints", [])
+
+        if len(waypoints) < 2:
+            return {
+                "guidance_mode": "PURE_PURSUIT",
+                "status": "need_at_least_two_waypoints"
+            }
+
+        start_wp = waypoints[self.active_segment]
+        end_wp = waypoints[min(self.active_segment + 1, len(waypoints) - 1)]
+
+        start_local = [0.0, 0.0, 0.0]
+        end_local = self.latlon_to_local_meters(start_wp, end_wp)
+        current_local = self.latlon_to_local_meters(start_wp, self.current_position)
+
+        path_vector = [
+            end_local[0] - start_local[0],
+            end_local[1] - start_local[1],
+            end_local[2] - start_local[2]
+        ]
+
+        path_length = self.vector_norm(path_vector)
+
+        if path_length < 1e-6:
+            return {
+                "guidance_mode": "PURE_PURSUIT",
+                "status": "invalid_path"
+            }
+
+        path_unit = [v / path_length for v in path_vector]
+
+        current_vector = [
+            current_local[0] - start_local[0],
+            current_local[1] - start_local[1],
+            current_local[2] - start_local[2]
+        ]
+
+        along_track_distance = self.dot_product(current_vector, path_unit)
+
+        lookahead_distance = 20.0
+        pursuit_distance = max(0.0, min(path_length, along_track_distance + lookahead_distance))
+        pursuit_ratio = pursuit_distance / path_length
+
+        lookahead_point = {
+            "lat": start_wp["lat"] + pursuit_ratio * (end_wp["lat"] - start_wp["lat"]),
+            "lon": start_wp["lon"] + pursuit_ratio * (end_wp["lon"] - start_wp["lon"]),
+            "alt": start_wp["alt"] + pursuit_ratio * (end_wp["alt"] - start_wp["alt"])
+        }
+
+        pursuit_vector = self.latlon_to_local_meters(self.current_position, lookahead_point)
+
+        pursuit_distance_actual = self.vector_norm(pursuit_vector)
+
+        pursuit_heading = math.degrees(
+            math.atan2(pursuit_vector[1], pursuit_vector[0])
+        )
+
+        return {
+            "guidance_mode": "PURE_PURSUIT",
+            "status": "active",
+            "active_segment": self.active_segment + 1,
+            "lookahead_distance": lookahead_distance,
+            "lookahead_point": lookahead_point,
+            "pursuit_distance": round(pursuit_distance_actual, 2),
+            "pursuit_heading": round(pursuit_heading, 2),
+            "along_track_distance": round(along_track_distance, 2),
+            "path_length": round(path_length, 2),
+            "current_position": self.current_position
+        }
+
     def publish_guidance_output(self):
         if self.guidance_mode == "DIRECT_WAYPOINT":
             guidance = self.compute_direct_waypoint_guidance()
         elif self.guidance_mode == "LOS_GUIDANCE":
             guidance = self.compute_los_guidance()
+        elif self.guidance_mode == "PURE_PURSUIT":
+            guidance = self.compute_pure_pursuit_guidance()
         else:
             guidance = {
                 "guidance_mode": self.guidance_mode,
