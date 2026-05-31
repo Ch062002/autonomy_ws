@@ -57,6 +57,15 @@ class OffboardMissionExecutor(Node):
             10
         )
 
+        self.pause_sub = self.create_subscription(
+            String,
+            "mission_control",
+            self.mission_control_callback,
+            10
+        )
+
+        self.mission_paused = False
+
         self.local_position_sub = self.create_subscription(
             VehicleLocalPosition,
             "/fmu/out/vehicle_local_position_v1",
@@ -122,6 +131,21 @@ class OffboardMissionExecutor(Node):
 
         except Exception as e:
             self.get_logger().error(f"Mission parse error: {e}")
+
+    def mission_control_callback(self, msg):
+        command = msg.data.strip().lower()
+
+        if command == "pause":
+            self.mission_paused = True
+            self.mission_state = "Paused"
+            self.get_logger().info("Mission paused")
+            self.publish_progress()
+
+        elif command == "resume":
+            self.mission_paused = False
+            self.mission_state = "Running"
+            self.get_logger().info("Mission resumed")
+            self.publish_progress()
 
     def local_position_callback(self, msg):
         self.current_local_position = [
@@ -237,6 +261,9 @@ class OffboardMissionExecutor(Node):
         if not self.mission_loaded or not self.mission_active:
             return
 
+        if self.mission_paused:
+            return
+
         distance = self.distance_to_current_setpoint()
 
         if self.counter % 20 == 0:
@@ -261,8 +288,12 @@ class OffboardMissionExecutor(Node):
                     f"Switching to waypoint {self.active_index + 1}: "
                     f"{self.current_setpoint}"
                 )
+
             else:
-                self.get_logger().info("Mission complete. Holding final waypoint.")
+                self.get_logger().info(
+                    "Mission complete. Holding final waypoint."
+                )
+
                 self.mission_active = False
                 self.mission_state = "Completed"
 
