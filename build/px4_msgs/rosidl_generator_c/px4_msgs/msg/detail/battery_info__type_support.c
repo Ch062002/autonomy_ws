@@ -4,8 +4,8 @@
 
 #include <string.h>
 
-#include "px4_msgs/msg/detail/battery_info__struct.h"
 #include "rosidl_typesupport_interface/macros.h"
+#include "px4_msgs/msg/detail/battery_info__struct.h"
 #include "px4_msgs/msg/detail/battery_info__type_support.h"
 #include "px4_msgs/msg/detail/battery_info__functions.h"
 

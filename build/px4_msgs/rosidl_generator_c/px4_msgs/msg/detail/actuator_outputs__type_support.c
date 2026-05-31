@@ -4,9 +4,9 @@
 
 #include <string.h>
 
+#include "rosidl_typesupport_interface/macros.h"
 #include "px4_msgs/msg/detail/actuator_outputs__type_support.h"
 #include "px4_msgs/msg/detail/actuator_outputs__struct.h"
-#include "rosidl_typesupport_interface/macros.h"
 #include "px4_msgs/msg/detail/actuator_outputs__functions.h"
 
 #ifdef __cplusplus

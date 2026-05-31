@@ -4,8 +4,8 @@
 
 #include <string.h>
 
-#include "px4_msgs/msg/detail/sensor_combined__functions.h"
 #include "rosidl_typesupport_interface/macros.h"
+#include "px4_msgs/msg/detail/sensor_combined__functions.h"
 #include "px4_msgs/msg/detail/sensor_combined__type_support.h"
 #include "px4_msgs/msg/detail/sensor_combined__struct.h"
 

@@ -4,9 +4,9 @@
 
 #include <string.h>
 
-#include "px4_msgs/msg/detail/sensor_mag__struct.h"
-#include "px4_msgs/msg/detail/sensor_mag__functions.h"
 #include "rosidl_typesupport_interface/macros.h"
+#include "px4_msgs/msg/detail/sensor_mag__functions.h"
+#include "px4_msgs/msg/detail/sensor_mag__struct.h"
 #include "px4_msgs/msg/detail/sensor_mag__type_support.h"
 
 #ifdef __cplusplus

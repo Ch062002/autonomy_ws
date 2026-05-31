@@ -4,8 +4,8 @@
 
 #include <string.h>
 
-#include "px4_msgs/msg/detail/vehicle_attitude_setpoint__struct.h"
 #include "rosidl_typesupport_interface/macros.h"
+#include "px4_msgs/msg/detail/vehicle_attitude_setpoint__struct.h"
 #include "px4_msgs/msg/detail/vehicle_attitude_setpoint__type_support.h"
 #include "px4_msgs/msg/detail/vehicle_attitude_setpoint__functions.h"
 

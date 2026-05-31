@@ -1,6 +1,5 @@
 import json
 import math
-import numpy as np
 
 import rclpy
 from rclpy.node import Node
@@ -57,14 +56,19 @@ class OffboardMissionExecutor(Node):
             10
         )
 
+        self.guidance_sub = self.create_subscription(
+            String,
+            "guidance_output",
+            self.guidance_callback,
+            10
+        )
+
         self.pause_sub = self.create_subscription(
             String,
             "mission_control",
             self.mission_control_callback,
             10
         )
-
-        self.mission_paused = False
 
         self.local_position_sub = self.create_subscription(
             VehicleLocalPosition,
@@ -82,16 +86,18 @@ class OffboardMissionExecutor(Node):
 
         self.mission_loaded = False
         self.mission_active = False
+        self.mission_paused = False
         self.mission_state = "Idle"
 
         self.mission_waypoints = []
         self.local_setpoints = []
         self.active_index = 0
 
+        self.latest_guidance = None
         self.acceptance_radius = 2.5
 
         self.get_logger().info("Distance-Based Offboard Mission Executor started")
-        self.get_logger().info("Waiting for mission_upload messages...")
+        self.get_logger().info("Waiting for mission_upload and guidance_output...")
 
     def mission_callback(self, msg):
         try:
@@ -117,6 +123,7 @@ class OffboardMissionExecutor(Node):
 
             self.mission_loaded = True
             self.mission_active = True
+            self.mission_paused = False
             self.mission_state = "Running"
             self.counter = 0
 
@@ -132,20 +139,34 @@ class OffboardMissionExecutor(Node):
         except Exception as e:
             self.get_logger().error(f"Mission parse error: {e}")
 
+    def guidance_callback(self, msg):
+        try:
+            self.latest_guidance = json.loads(msg.data)
+
+            if self.counter % 20 == 0:
+                self.get_logger().info(
+                    f"Guidance received: {self.latest_guidance}"
+                )
+
+        except Exception as e:
+            self.get_logger().error(f"Guidance parse error: {e}")
+
     def mission_control_callback(self, msg):
         command = msg.data.strip().lower()
 
         if command == "pause":
-            self.mission_paused = True
-            self.mission_state = "Paused"
-            self.get_logger().info("Mission paused")
-            self.publish_progress()
+            if self.mission_active:
+                self.mission_paused = True
+                self.mission_state = "Paused"
+                self.get_logger().info("Mission paused")
+                self.publish_progress()
 
         elif command == "resume":
-            self.mission_paused = False
-            self.mission_state = "Running"
-            self.get_logger().info("Mission resumed")
-            self.publish_progress()
+            if self.mission_active:
+                self.mission_paused = False
+                self.mission_state = "Running"
+                self.get_logger().info("Mission resumed")
+                self.publish_progress()
 
     def local_position_callback(self, msg):
         self.current_local_position = [
@@ -177,7 +198,7 @@ class OffboardMissionExecutor(Node):
         dy = self.current_local_position[1] - target_position[1]
         dz = self.current_local_position[2] - target_position[2]
 
-        distance_to_waypoint = (dx * dx + dy * dy + dz * dz) ** 0.5
+        distance_to_waypoint = math.sqrt(dx * dx + dy * dy + dz * dz)
 
         payload = {
             "mission_state": self.mission_state,
@@ -194,15 +215,20 @@ class OffboardMissionExecutor(Node):
                 round(target_position[0], 2),
                 round(target_position[1], 2),
                 round(target_position[2], 2)
-            ]
+            ],
+            "guidance_mode": (
+                self.latest_guidance.get("guidance_mode")
+                if self.latest_guidance else "DIRECT_WAYPOINT"
+            )
         }
 
         msg = String()
         msg.data = json.dumps(payload)
         self.progress_pub.publish(msg)
+
         with open("/tmp/mission_progress.json", "w") as f:
             json.dump(payload, f)
-        
+
     def publish_vehicle_command(self, command, param1=0.0, param2=0.0):
         msg = VehicleCommand()
 
@@ -240,6 +266,7 @@ class OffboardMissionExecutor(Node):
             float(self.current_setpoint[1]),
             float(self.current_setpoint[2])
         ]
+
         msg.yaw = 0.0
 
         self.trajectory_pub.publish(msg)
@@ -290,10 +317,7 @@ class OffboardMissionExecutor(Node):
                 )
 
             else:
-                self.get_logger().info(
-                    "Mission complete. Holding final waypoint."
-                )
-
+                self.get_logger().info("Mission complete. Holding final waypoint.")
                 self.mission_active = False
                 self.mission_state = "Completed"
 

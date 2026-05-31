@@ -5,8 +5,8 @@
 #include <string.h>
 
 #include "px4_msgs/msg/detail/estimator_aid_source2d__struct.h"
-#include "px4_msgs/msg/detail/estimator_aid_source2d__functions.h"
 #include "rosidl_typesupport_interface/macros.h"
+#include "px4_msgs/msg/detail/estimator_aid_source2d__functions.h"
 #include "px4_msgs/msg/detail/estimator_aid_source2d__type_support.h"
 
 #ifdef __cplusplus

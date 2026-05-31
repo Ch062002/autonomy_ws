@@ -4,8 +4,8 @@
 
 #include <string.h>
 
-#include "px4_msgs/msg/detail/parameter_update__functions.h"
 #include "rosidl_typesupport_interface/macros.h"
+#include "px4_msgs/msg/detail/parameter_update__functions.h"
 #include "px4_msgs/msg/detail/parameter_update__struct.h"
 #include "px4_msgs/msg/detail/parameter_update__type_support.h"
 

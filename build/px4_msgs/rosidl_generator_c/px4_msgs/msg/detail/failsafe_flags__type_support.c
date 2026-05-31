@@ -4,8 +4,8 @@
 
 #include <string.h>
 
-#include "px4_msgs/msg/detail/failsafe_flags__functions.h"
 #include "rosidl_typesupport_interface/macros.h"
+#include "px4_msgs/msg/detail/failsafe_flags__functions.h"
 #include "px4_msgs/msg/detail/failsafe_flags__struct.h"
 #include "px4_msgs/msg/detail/failsafe_flags__type_support.h"
 

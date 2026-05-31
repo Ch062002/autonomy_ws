@@ -4,9 +4,9 @@
 
 #include <string.h>
 
+#include "rosidl_typesupport_interface/macros.h"
 #include "px4_msgs/msg/detail/sensor_gnss_status__functions.h"
 #include "px4_msgs/msg/detail/sensor_gnss_status__struct.h"
-#include "rosidl_typesupport_interface/macros.h"
 #include "px4_msgs/msg/detail/sensor_gnss_status__type_support.h"
 
 #ifdef __cplusplus
