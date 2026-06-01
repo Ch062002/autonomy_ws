@@ -15,17 +15,11 @@ class GuidanceNode(Node):
         super().__init__("guidance_node")
 
         self.mission_sub = self.create_subscription(
-            String,
-            "mission_upload",
-            self.mission_callback,
-            10
+            String, "mission_upload", self.mission_callback, 10
         )
 
         self.mode_sub = self.create_subscription(
-            String,
-            "guidance_mode",
-            self.guidance_mode_callback,
-            10
+            String, "guidance_mode", self.guidance_mode_callback, 10
         )
 
         qos_profile = QoSProfile(
@@ -41,11 +35,7 @@ class GuidanceNode(Node):
             qos_profile
         )
 
-        self.guidance_pub = self.create_publisher(
-            String,
-            "guidance_output",
-            10
-        )
+        self.guidance_pub = self.create_publisher(String, "guidance_output", 10)
 
         self.timer = self.create_timer(1.0, self.publish_guidance_output)
 
@@ -70,7 +60,6 @@ class GuidanceNode(Node):
             self.active_waypoint = 0
 
             waypoints = self.mission.get("waypoints", [])
-
             self.get_logger().info("Mission received by Guidance Node")
             self.get_logger().info(f"Waypoint count: {len(waypoints)}")
 
@@ -90,13 +79,9 @@ class GuidanceNode(Node):
 
         if mode in allowed_modes:
             self.guidance_mode = mode
-            self.get_logger().info(
-                f"Guidance mode changed to: {self.guidance_mode}"
-            )
+            self.get_logger().info(f"Guidance mode changed to: {self.guidance_mode}")
         else:
-            self.get_logger().warn(
-                f"Invalid guidance mode received: {mode}"
-            )
+            self.get_logger().warn(f"Invalid guidance mode received: {mode}")
 
     def global_position_callback(self, msg):
         self.current_position = {
@@ -138,18 +123,20 @@ class GuidanceNode(Node):
         bearing = math.degrees(math.atan2(y, x))
         return (bearing + 360.0) % 360.0
 
+    def normalize_angle_deg(self, angle):
+        return (angle + 360.0) % 360.0
+
+    def shortest_angle_error_deg(self, target, current):
+        return (target - current + 180.0) % 360.0 - 180.0
+
     def compute_direct_waypoint_guidance(self):
         if self.mission is None:
             return {
                 "guidance_mode": "DIRECT_WAYPOINT",
                 "status": "waiting_for_mission",
-                "target_waypoint": None,
                 "distance_to_target": None,
                 "bearing_to_target": None,
                 "altitude_error": None,
-                "cross_track_error": None,
-                "along_track_distance": None,
-                "path_length": None,
                 "current_position": self.current_position
             }
 
@@ -159,32 +146,19 @@ class GuidanceNode(Node):
             return {
                 "guidance_mode": "DIRECT_WAYPOINT",
                 "status": "no_waypoints",
-                "target_waypoint": None,
                 "distance_to_target": None,
                 "bearing_to_target": None,
                 "altitude_error": None,
-                "cross_track_error": None,
-                "along_track_distance": None,
-                "path_length": None,
                 "current_position": self.current_position
             }
 
         target = waypoints[min(self.active_waypoint, len(waypoints) - 1)]
 
-        local_vector = self.latlon_to_local_meters(
-            self.current_position,
-            target
-        )
+        local_vector = self.latlon_to_local_meters(self.current_position, target)
 
-        horizontal_distance = math.sqrt(
-            local_vector[0] ** 2 + local_vector[1] ** 2
-        )
-
+        horizontal_distance = math.sqrt(local_vector[0] ** 2 + local_vector[1] ** 2)
         distance_to_target = self.vector_norm(local_vector)
-        bearing_to_target = self.compute_bearing_deg(
-            self.current_position,
-            target
-        )
+        bearing_to_target = self.compute_bearing_deg(self.current_position, target)
         altitude_error = target["alt"] - self.current_position["alt"]
 
         return {
@@ -207,11 +181,9 @@ class GuidanceNode(Node):
             return {
                 "guidance_mode": "LOS_GUIDANCE",
                 "status": "waiting_for_mission",
-                "active_segment": None,
                 "cross_track_error": None,
                 "along_track_distance": None,
                 "path_length": None,
-                "lookahead_point": None,
                 "current_position": self.current_position
             }
 
@@ -221,11 +193,9 @@ class GuidanceNode(Node):
             return {
                 "guidance_mode": "LOS_GUIDANCE",
                 "status": "need_at_least_two_waypoints",
-                "active_segment": None,
                 "cross_track_error": None,
                 "along_track_distance": None,
                 "path_length": None,
-                "lookahead_point": None,
                 "current_position": self.current_position
             }
 
@@ -234,10 +204,7 @@ class GuidanceNode(Node):
 
         start_local = [0.0, 0.0, 0.0]
         end_local = self.latlon_to_local_meters(start_wp, end_wp)
-        current_local = self.latlon_to_local_meters(
-            start_wp,
-            self.current_position
-        )
+        current_local = self.latlon_to_local_meters(start_wp, self.current_position)
 
         path_vector = [
             end_local[0] - start_local[0],
@@ -259,10 +226,7 @@ class GuidanceNode(Node):
             projection_ratio = 0.0
         else:
             path_unit = [v / path_length for v in path_vector]
-            along_track_distance = self.dot_product(
-                current_vector,
-                path_unit
-            )
+            along_track_distance = self.dot_product(current_vector, path_unit)
 
             projection = [
                 along_track_distance * path_unit[0],
@@ -277,20 +241,14 @@ class GuidanceNode(Node):
             ]
 
             cross_track_error = self.vector_norm(error_vector)
-            projection_ratio = max(
-                0.0,
-                min(1.0, along_track_distance / path_length)
-            )
+            projection_ratio = max(0.0, min(1.0, along_track_distance / path_length))
 
         lookahead_ratio = min(1.0, projection_ratio + 0.25)
 
         lookahead_point = {
-            "lat": start_wp["lat"]
-            + lookahead_ratio * (end_wp["lat"] - start_wp["lat"]),
-            "lon": start_wp["lon"]
-            + lookahead_ratio * (end_wp["lon"] - start_wp["lon"]),
-            "alt": start_wp["alt"]
-            + lookahead_ratio * (end_wp["alt"] - start_wp["alt"])
+            "lat": start_wp["lat"] + lookahead_ratio * (end_wp["lat"] - start_wp["lat"]),
+            "lon": start_wp["lon"] + lookahead_ratio * (end_wp["lon"] - start_wp["lon"]),
+            "alt": start_wp["alt"] + lookahead_ratio * (end_wp["alt"] - start_wp["alt"])
         }
 
         return {
@@ -326,10 +284,7 @@ class GuidanceNode(Node):
 
         start_local = [0.0, 0.0, 0.0]
         end_local = self.latlon_to_local_meters(start_wp, end_wp)
-        current_local = self.latlon_to_local_meters(
-            start_wp,
-            self.current_position
-        )
+        current_local = self.latlon_to_local_meters(start_wp, self.current_position)
 
         path_vector = [
             end_local[0] - start_local[0],
@@ -353,13 +308,9 @@ class GuidanceNode(Node):
             current_local[2] - start_local[2]
         ]
 
-        along_track_distance = self.dot_product(
-            current_vector,
-            path_unit
-        )
+        along_track_distance = self.dot_product(current_vector, path_unit)
 
         lookahead_distance = 20.0
-
         pursuit_distance = max(
             0.0,
             min(path_length, along_track_distance + lookahead_distance)
@@ -368,19 +319,12 @@ class GuidanceNode(Node):
         pursuit_ratio = pursuit_distance / path_length
 
         lookahead_point = {
-            "lat": start_wp["lat"]
-            + pursuit_ratio * (end_wp["lat"] - start_wp["lat"]),
-            "lon": start_wp["lon"]
-            + pursuit_ratio * (end_wp["lon"] - start_wp["lon"]),
-            "alt": start_wp["alt"]
-            + pursuit_ratio * (end_wp["alt"] - start_wp["alt"])
+            "lat": start_wp["lat"] + pursuit_ratio * (end_wp["lat"] - start_wp["lat"]),
+            "lon": start_wp["lon"] + pursuit_ratio * (end_wp["lon"] - start_wp["lon"]),
+            "alt": start_wp["alt"] + pursuit_ratio * (end_wp["alt"] - start_wp["alt"])
         }
 
-        pursuit_vector = self.latlon_to_local_meters(
-            self.current_position,
-            lookahead_point
-        )
-
+        pursuit_vector = self.latlon_to_local_meters(self.current_position, lookahead_point)
         pursuit_distance_actual = self.vector_norm(pursuit_vector)
 
         pursuit_heading = math.degrees(
@@ -429,10 +373,7 @@ class GuidanceNode(Node):
         end_wp = waypoints[min(self.active_segment + 1, len(waypoints) - 1)]
 
         end_local = self.latlon_to_local_meters(start_wp, end_wp)
-        current_local = self.latlon_to_local_meters(
-            start_wp,
-            self.current_position
-        )
+        current_local = self.latlon_to_local_meters(start_wp, self.current_position)
 
         path_vector = end_local
         path_length = self.vector_norm(path_vector)
@@ -449,7 +390,6 @@ class GuidanceNode(Node):
             }
 
         path_unit = [v / path_length for v in path_vector]
-
         along_track_distance = self.dot_product(current_local, path_unit)
 
         projection = [
@@ -481,13 +421,8 @@ class GuidanceNode(Node):
         else:
             guidance_unit = path_unit
 
-        desired_heading = math.degrees(
-            math.atan2(guidance_unit[1], guidance_unit[0])
-        )
-
-        path_heading = math.degrees(
-            math.atan2(path_unit[1], path_unit[0])
-        )
+        desired_heading = math.degrees(math.atan2(guidance_unit[1], guidance_unit[0]))
+        path_heading = math.degrees(math.atan2(path_unit[1], path_unit[0]))
 
         return {
             "guidance_mode": "VECTOR_FIELD",
@@ -503,19 +438,78 @@ class GuidanceNode(Node):
             "current_position": self.current_position
         }
 
+    def compute_dubins_guidance(self):
+        if self.mission is None:
+            return {
+                "guidance_mode": "DUBINS",
+                "status": "waiting_for_mission"
+            }
+
+        waypoints = self.mission.get("waypoints", [])
+
+        if len(waypoints) < 2:
+            return {
+                "guidance_mode": "DUBINS",
+                "status": "need_at_least_two_waypoints"
+            }
+
+        start_wp = waypoints[self.active_segment]
+        end_wp = waypoints[min(self.active_segment + 1, len(waypoints) - 1)]
+
+        local_vector = self.latlon_to_local_meters(start_wp, end_wp)
+
+        straight_distance = math.sqrt(
+            local_vector[0] ** 2 + local_vector[1] ** 2
+        )
+
+        altitude_difference = end_wp["alt"] - start_wp["alt"]
+
+        start_bearing = self.compute_bearing_deg(start_wp, end_wp)
+        current_bearing = self.compute_bearing_deg(self.current_position, end_wp)
+
+        heading_error = self.shortest_angle_error_deg(start_bearing, current_bearing)
+
+        turn_radius = 25.0
+
+        minimum_required_distance = 2.0 * turn_radius
+
+        turn_feasible = straight_distance >= minimum_required_distance
+
+        if turn_feasible:
+            turn_arc_length = math.pi * turn_radius
+            estimated_dubins_length = straight_distance + turn_arc_length
+        else:
+            turn_arc_length = 2.0 * math.pi * turn_radius
+            estimated_dubins_length = straight_distance + turn_arc_length
+
+        return {
+            "guidance_mode": "DUBINS",
+            "status": "active",
+            "active_segment": self.active_segment + 1,
+            "target_waypoint": end_wp,
+            "turn_radius": turn_radius,
+            "straight_distance": round(straight_distance, 2),
+            "turn_arc_length": round(turn_arc_length, 2),
+            "estimated_dubins_length": round(estimated_dubins_length, 2),
+            "start_to_target_bearing": round(start_bearing, 2),
+            "current_to_target_bearing": round(current_bearing, 2),
+            "heading_error": round(heading_error, 2),
+            "altitude_difference": round(altitude_difference, 2),
+            "turn_feasible": turn_feasible,
+            "current_position": self.current_position
+        }
+
     def publish_guidance_output(self):
         if self.guidance_mode == "DIRECT_WAYPOINT":
             guidance = self.compute_direct_waypoint_guidance()
-
         elif self.guidance_mode == "LOS_GUIDANCE":
             guidance = self.compute_los_guidance()
-
         elif self.guidance_mode == "PURE_PURSUIT":
             guidance = self.compute_pure_pursuit_guidance()
-
         elif self.guidance_mode == "VECTOR_FIELD":
             guidance = self.compute_vector_field_guidance()
-
+        elif self.guidance_mode == "DUBINS":
+            guidance = self.compute_dubins_guidance()
         else:
             guidance = {
                 "guidance_mode": self.guidance_mode,
